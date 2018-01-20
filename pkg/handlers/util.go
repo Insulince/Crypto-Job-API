@@ -67,7 +67,7 @@ func verifyToken(tokenId string) (valid bool) {
 	return statusMessage.Status == "Valid"
 }
 
-func Respond(w http.ResponseWriter, response interface{}) () {
+func Respond(w http.ResponseWriter, response interface{}, status int) () {
 	w.Header().Set("Content-Type", "application/json")
 	responseBody, err := json.Marshal(response)
 	if err != nil {
@@ -75,5 +75,8 @@ func Respond(w http.ResponseWriter, response interface{}) () {
 		fmt.Fprintf(w, "{\n\t\"message\": \"Could not process response body.\"\n}")
 		return
 	}
+
+	w.WriteHeader(status)
 	fmt.Fprintf(w, string(responseBody))
+	fmt.Printf("Response sent with status %v\n", status)
 }
