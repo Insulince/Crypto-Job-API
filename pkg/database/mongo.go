@@ -10,83 +10,103 @@ import (
 
 var db *mgo.Database
 
-func InitializeDatabase(config models.Config) () {
+func InitializeDatabase(config models.Config) (err error) {
 	session, err := mgo.Dial(config.MongoDBURL)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	session.SetMode(mgo.Strong, true)
 	db = session.DB("crypto")
+	return nil
 }
 
-func Jobs() (*mgo.Collection) {
+func Jobs() (jobs *mgo.Collection) {
 	return db.C("jobs")
 }
 
-func CreateJob(job models.Job) () {
+func InsertJob(job models.Job) (err error) {
 	job.LastExecutionTime = time.Now().Unix()
 	job.State = "stopped"
+	job.Claimed = false
+	job.QuantityOfExecutions = 0
 
-	err := Jobs().Insert(job)
-	if err != nil {
-		panic(err)
-	}
+	return Jobs().Insert(job)
 }
 
-func FindJobs() ([]models.Job) {
-	var jobs []models.Job
-	err := Jobs().Find(nil).All(&jobs)
+func FindJobs() (jobs []models.Job, err error) {
+	err = Jobs().Find(nil).All(&jobs)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return jobs
+	return jobs, nil
 }
 
-func FindStartedJobs() ([]models.Job) {
-	var jobs []models.Job
-	err := Jobs().Find(bson.M{"state": "started"}).All(&jobs)
+func FindStartedJobs() (jobs []models.Job, err error) {
+	err = Jobs().Find(bson.M{"state": "started"}).All(&jobs)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return jobs
+	return jobs, nil
 }
 
-func FindJobByID(id string) (models.Job) {
+func FindJobByID(id string) (job *models.Job, err error) {
 	if !bson.IsObjectIdHex(id) {
-		panic(errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID."))
+		return nil, errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID.")
 	}
-	var job models.Job
-	err := Jobs().FindId(bson.ObjectIdHex(id)).One(&job)
+
+	err = Jobs().FindId(bson.ObjectIdHex(id)).One(&job)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return job
+	return job, nil
 }
 
-func UpdateJob(id string, updates bson.M) () {
+func UpdateJob(id string, updates bson.M) (err error) {
 	if !bson.IsObjectIdHex(id) {
-		panic(errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID."))
+		return errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID.")
 	}
-	err := Jobs().UpdateId(bson.ObjectIdHex(id), bson.M{"$set": updates})
-	if err != nil {
-		panic(err)
-	}
+
+	return Jobs().UpdateId(bson.ObjectIdHex(id), bson.M{"$set": updates})
 }
 
-func DeleteJob(id string) () {
+func DeleteJob(id string) (err error) {
 	if !bson.IsObjectIdHex(id) {
-		panic(errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID."))
+		return errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID.")
 	}
-	err := Jobs().RemoveId(bson.ObjectIdHex(id))
+
+	return Jobs().RemoveId(bson.ObjectIdHex(id))
+}
+
+func StartJob(id string) (err error) {
+	return UpdateJob(id, bson.M{"state": "started"})
+}
+
+func StopJob(id string) (err error) {
+	return UpdateJob(id, bson.M{"state": "stopped"})
+}
+
+func ClaimJob(id string) (err error) {
+	job, err := FindJobByID(id)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	if job.Claimed != false {
+		return errors.New("job is already claimed")
+	}
+
+	return UpdateJob(id, bson.M{"claimed": true})
 }
 
-func StartJob(id string) () {
-	UpdateJob(id, bson.M{"state": "started"})
-}
+func UnclaimJob(id string) (err error) {
+	job, err := FindJobByID(id)
+	if err != nil {
+		return err
+	}
 
-func StopJob(id string) () {
-	UpdateJob(id, bson.M{"state": "stopped"})
+	if job.Claimed != true {
+		return errors.New("job is already unclaimed")
+	}
+
+	return UpdateJob(id, bson.M{"claimed": false})
 }

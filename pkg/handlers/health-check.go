@@ -2,12 +2,18 @@ package handlers
 
 import (
 	"net/http"
-	"crypto-jobs/pkg/models"
+	"crypto-jobs/pkg/models/responses"
+	"fmt"
+	"os"
 )
 
 func HealthCheck(w http.ResponseWriter, r *http.Request) () {
-	CallReceived(r)
+	_, _, _, err := CallReceived(r)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		Respond(w, responses.Message{Message: err.Error()})
+		return
+	}
 
-	type Response models.Message
-	Respond(w, Response{Message: "OK"})
+	Respond(w, responses.Message{Message: "OK"})
 }

@@ -2,12 +2,18 @@ package handlers
 
 import (
 	"net/http"
-	"crypto-jobs/pkg/models"
+	"fmt"
+	"os"
+	"crypto-jobs/pkg/models/responses"
 )
 
 func NotFound(w http.ResponseWriter, r *http.Request) () {
-	CallReceived(r)
+	_, _, _, err := CallReceived(r)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		Respond(w, responses.Message{Message: err.Error()})
+		return
+	}
 
-	type Response models.Error
-	Respond(w, Response{Message: "Unrecognized call."})
+	Respond(w, responses.Error{Message: "Unrecognized call."})
 }
