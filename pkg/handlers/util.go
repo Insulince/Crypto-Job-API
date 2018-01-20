@@ -5,7 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"encoding/json"
-	cryptoUsersModels "crypto-users/pkg/models"
+	cryptoUsersResponses "crypto-users/pkg/models/responses"
 	"fmt"
 	"errors"
 	"os"
@@ -57,7 +57,7 @@ func verifyToken(tokenId string) (valid bool) {
 		return false
 	}
 
-	var statusMessage cryptoUsersModels.StatusMessage
+	var statusMessage cryptoUsersResponses.StatusMessage
 	err = json.Unmarshal(responseBody, &statusMessage)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Response error: \"%v\"", err)
@@ -72,7 +72,7 @@ func Respond(w http.ResponseWriter, response interface{}) () {
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		fmt.Fprintf(w, "Could not process response body.")
+		fmt.Fprintf(w, "{\n\t\"message\": \"Could not process response body.\"\n}")
 		return
 	}
 	fmt.Fprintf(w, string(responseBody))
