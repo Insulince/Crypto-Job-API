@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"errors"
 	"os"
+	"net/url"
 )
 
 func CallReceived(r *http.Request) (routeVariables map[string]string, queryParameters map[string][]string, requestBody []byte, err error) {
@@ -27,8 +28,12 @@ func ProtectedCallReceived(r *http.Request) (routeVariables map[string]string, q
 		return nil, nil, nil, errors.New("No \"token-id\" query parameter provided for authentication, access denied.")
 	}
 
-	if verifyToken(queryParameters["token-id"][0]) != true {
-		return nil, nil, nil, errors.New("Invalid token id.")
+	if len(queryParameters["token-value"]) != 1 {
+		return nil, nil, nil, errors.New("No \"token-value\" query parameter provided for authenticatioin, access denied.")
+	}
+
+	if verifyToken(queryParameters["token-id"][0], queryParameters["token-value"][0]) != true {
+		return nil, nil, nil, errors.New("Invalid token credentials.")
 	}
 
 	return routeVariables, queryParameters, requestBody, nil
@@ -43,8 +48,8 @@ func getRequestInformation(r *http.Request) (routeVariables map[string]string, q
 	return mux.Vars(r), r.URL.Query(), requestBody, nil
 }
 
-func verifyToken(tokenId string) (valid bool) {
-	response, err := http.Get("http://localhost:2576/token/verify?token-id=" + tokenId)
+func verifyToken(tokenId string, tokenValue string) (valid bool) {
+	response, err := http.Get("http://localhost:2576/token/verify?token-id=" + tokenId + "&token-value=" + url.QueryEscape(tokenValue))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Response error: \"%v\"", err)
 		return false
@@ -64,7 +69,7 @@ func verifyToken(tokenId string) (valid bool) {
 		return false
 	}
 
-	return statusMessage.Status == "Valid"
+	return statusMessage.Valid == true
 }
 
 func Respond(w http.ResponseWriter, response interface{}, status int) () {
