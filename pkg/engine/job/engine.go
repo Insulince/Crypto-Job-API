@@ -40,7 +40,7 @@ func executeJob(job models.Job) () {
 	}
 
 	fmt.Println("Executing job \"" + job.Id.Hex() + "\"")
-	err = database.UpdateJob(job.Id.Hex(), bson.M{"last-execution-time": time.Now().Unix(), "quantity-of-executions": job.QuantityOfExecutions + 1})
+	err = database.UpdateJob(job.Id.Hex(), bson.M{"last-execution-time": time.Now().Unix(), "quantity-of-executions": job.QuantityOfExecutions + 1}, bson.M{})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error executing job: \"%v\"", err)
 	}

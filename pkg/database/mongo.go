@@ -6,6 +6,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"errors"
 	"time"
+	"fmt"
 )
 
 var db *mgo.Database
@@ -61,12 +62,26 @@ func FindJobByID(id string) (job *models.Job, err error) {
 	return job, nil
 }
 
-func UpdateJob(id string, updates bson.M) (err error) {
+func UpdateJob(id string, additionsOrChanges bson.M, removals bson.M) (err error) {
 	if !bson.IsObjectIdHex(id) {
 		return errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID.")
 	}
 
-	return Jobs().UpdateId(bson.ObjectIdHex(id), bson.M{"$set": updates})
+	fmt.Println(additionsOrChanges)
+	fmt.Println(removals)
+	if len(additionsOrChanges) > 0 {
+		if len(removals) > 0 {
+			return Jobs().UpdateId(bson.ObjectIdHex(id), bson.M{"$set": additionsOrChanges, "$unset": removals})
+		} else {
+			return Jobs().UpdateId(bson.ObjectIdHex(id), bson.M{"$set": additionsOrChanges})
+		}
+	} else {
+		if len(removals) > 0 {
+			return Jobs().UpdateId(bson.ObjectIdHex(id), bson.M{"$unset": removals})
+		} else {
+			return errors.New("No changes provided to update job with!")
+		}
+	}
 }
 
 func DeleteJob(id string) (err error) {
@@ -78,11 +93,11 @@ func DeleteJob(id string) (err error) {
 }
 
 func StartJob(id string) (err error) {
-	return UpdateJob(id, bson.M{"state": "started"})
+	return UpdateJob(id, bson.M{"state": "started"}, bson.M{})
 }
 
 func StopJob(id string) (err error) {
-	return UpdateJob(id, bson.M{"state": "stopped"})
+	return UpdateJob(id, bson.M{"state": "stopped"}, bson.M{})
 }
 
 func ClaimJob(id string) (err error) {
@@ -95,7 +110,7 @@ func ClaimJob(id string) (err error) {
 		return errors.New("job is already claimed")
 	}
 
-	return UpdateJob(id, bson.M{"claimed": true})
+	return UpdateJob(id, bson.M{"claimed": true}, bson.M{})
 }
 
 func UnclaimJob(id string) (err error) {
@@ -108,5 +123,5 @@ func UnclaimJob(id string) (err error) {
 		return errors.New("job is already unclaimed")
 	}
 
-	return UpdateJob(id, bson.M{"claimed": false})
+	return UpdateJob(id, bson.M{"claimed": false}, bson.M{})
 }

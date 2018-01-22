@@ -17,8 +17,8 @@ type Job struct {
 }
 
 type Action struct {
+	Name       string `json:"name" bson:"name"`
 	Type       string `json:"type" bson:"type"`
 	For        string `json:"for" bson:"for"`
 	Currencies string `json:"currencies" bson:"currencies,omitempty"`
-	Via        string `json:"via" bson:"via"`
 }
