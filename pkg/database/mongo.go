@@ -6,12 +6,12 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"errors"
 	"time"
-	"fmt"
+	"crypto-jobs/pkg/models/configuration"
 )
 
 var db *mgo.Database
 
-func InitializeDatabase(config models.Config) (err error) {
+func InitializeDatabase(config configuration.Config) (err error) {
 	session, err := mgo.Dial(config.MongoDBURL)
 	if err != nil {
 		return err
@@ -71,8 +71,6 @@ func UpdateJob(id string, additionsOrChanges bson.M, removals bson.M) (err error
 		return errors.New("Provided ID \"" + id + "\" is not a valid MongoDB ID.")
 	}
 
-	fmt.Println(additionsOrChanges)
-	fmt.Println(removals)
 	if len(additionsOrChanges) > 0 {
 		if len(removals) > 0 {
 			return Jobs().UpdateId(bson.ObjectIdHex(id), bson.M{"$set": additionsOrChanges, "$unset": removals})
@@ -102,6 +100,10 @@ func StartJob(id string) (err error) {
 
 func StopJob(id string) (err error) {
 	return UpdateJob(id, bson.M{"state": "stopped"}, bson.M{})
+}
+
+func JobExecuted(id string, quantityOfExecutions int64) (err error) {
+	return UpdateJob(id, bson.M{"last-execution-time": time.Now().Unix(), "quantity-of-executions": quantityOfExecutions + 1}, bson.M{})
 }
 
 func ClaimJob(id string) (err error) {

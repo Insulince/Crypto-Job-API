@@ -2,6 +2,8 @@ package models
 
 import (
 	"gopkg.in/mgo.v2/bson"
+	"time"
+	"fmt"
 )
 
 type Job struct {
@@ -16,9 +18,16 @@ type Job struct {
 	QuantityOfExecutions int64         `json:"quantity-of-executions" bson:"quantity-of-executions"`
 }
 
-type Action struct {
-	Name       string   `json:"name" bson:"name"`
-	Type       string   `json:"type" bson:"type"`
-	For        string   `json:"for" bson:"for"`
-	Currencies []string `json:"currencies" bson:"currencies,omitempty"`
+func (job *Job) WaitDurationSurpassed() (bool) {
+	return time.Now().Unix()-job.LastExecutionTime > job.FrequencyInSeconds
+}
+
+func (job *Job) Execute() () {
+	fmt.Println("Executing job \"" + job.Id.Hex() + "\"")
+
+	for _, action := range job.Actions {
+		go func(action Action) {
+			action.Execute()
+		}(action)
+	}
 }

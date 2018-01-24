@@ -67,7 +67,7 @@ func CreateJob(w http.ResponseWriter, r *http.Request) () {
 		return
 	}
 
-	Respond(w, responses.Empty{}, http.StatusOK)
+	Respond(w, responses.Message{Message: "Success."}, http.StatusOK)
 }
 
 func StartProvidedJobs(w http.ResponseWriter, r *http.Request) () {

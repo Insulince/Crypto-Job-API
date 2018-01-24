@@ -6,13 +6,16 @@ import (
 	"strings"
 	"encoding/json"
 	"fmt"
-	"crypto-jobs/pkg/models"
 	"crypto-jobs/pkg/models/twilio"
+	"crypto-jobs/pkg/models/configuration"
+	"os"
 )
 
-func SendMessage(config models.Config, message string) () {
+func SendTextTo(receiverPhoneNumber string, message string) () {
+	config := configuration.GetConfiguration()
+
 	bodyData := url.Values{}
-	bodyData.Set("To", config.ReceiverPhoneNumber)
+	bodyData.Set("To", receiverPhoneNumber)
 	bodyData.Set("From", config.SenderPhoneNumber)
 	bodyData.Set("Body", message)
 	httpClient := &http.Client{}
@@ -37,6 +40,6 @@ func SendMessage(config models.Config, message string) () {
 			panic(err)
 		}
 	} else {
-		fmt.Println("Twilio Response Error: " + response.Status)
+		fmt.Fprintf(os.Stderr, "Twilio Response Error: \"%v\"\n", response.Status)
 	}
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
-	"encoding/json"
 	"crypto-jobs/pkg/models"
 	"crypto-jobs/pkg/database"
 	"log"
@@ -10,37 +8,22 @@ import (
 	"strconv"
 	"crypto-jobs/pkg/routes"
 	"crypto-jobs/pkg/engine/job"
+	"crypto-jobs/pkg/models/configuration"
+	"fmt"
 )
 
-var config models.Config
-
 func main() () {
-	configure()
+	config := configuration.GetConfiguration()
 
-	//TODO: Some way to resume all jobs from last run. Possibly by storing them in a json file or something.
-	go job.StartEngine(config)
-
-	router := models.CreateRouter()
-	router = routes.CreateRoutes(router)
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(config.Port), router))
-}
-
-func configure() () {
-	populateConfig()
 	err := database.InitializeDatabase(config)
 	if err != nil {
 		panic(err)
 	}
-}
 
-func populateConfig() () {
-	jsonFile, err := ioutil.ReadFile("../config/config.json")
-	if err != nil {
-		panic(err)
-	}
+	go job.RunEngine()
 
-	err = json.Unmarshal(jsonFile, &config)
-	if err != nil {
-		panic(err)
-	}
+	fmt.Println("asdf")
+	router := models.CreateRouter()
+	router = routes.CreateRoutes(router)
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(config.Port), router))
 }
