@@ -25,9 +25,13 @@ func Jobs() (jobs *mgo.Collection) {
 	return db.C("jobs")
 }
 
-func InsertJob(job models.Job) (err error) {
+func InsertJob(job models.Job, started bool) (err error) {
 	job.LastExecutionTime = time.Now().Unix()
-	job.State = "stopped"
+	if started {
+		job.State = "started"
+	} else {
+		job.State = "stopped"
+	}
 	job.Claimed = false
 	job.QuantityOfExecutions = 0
 

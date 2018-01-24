@@ -31,20 +31,36 @@ func GetJobs(w http.ResponseWriter, r *http.Request) () {
 	}
 
 	type Response struct {
-		Jobs []models.Job `json:"jobs"`
+		Message string       `json:"message"`
+		Jobs    []models.Job `json:"jobs"`
 	}
-	Respond(w, Response{Jobs: jobs}, http.StatusOK)
+	Respond(w, Response{Message: "Success.", Jobs: jobs}, http.StatusOK)
 }
 
 func CreateJob(w http.ResponseWriter, r *http.Request) () {
-	_, _, _, err := ProtectedCallReceived(r)
+	_, _, rawPostBody, err := ProtectedCallReceived(r)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		Respond(w, responses.Message{Message: err.Error()}, http.StatusInternalServerError)
 		return
 	}
 
-	err = database.InsertJob(models.Job{FrequencyInSeconds: 5, Actions: []models.Action{{Name: "swag", Type: "email-i-guess", For: "justin", Currencies: "XRB"}}})
+	type PostBody struct {
+		Actions            []models.Action `json:"actions"`
+		FrequencyInSeconds int64           `json:"frequency-in-seconds"`
+		Started            bool            `json:"started"`
+	}
+	var postBody PostBody
+	err = json.Unmarshal(rawPostBody, &postBody)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		Respond(w, responses.Error{Message: "Could not read request body."}, http.StatusBadRequest)
+		return
+	}
+
+	job := models.Job{Actions: postBody.Actions, FrequencyInSeconds: postBody.FrequencyInSeconds}
+
+	err = database.InsertJob(job, postBody.Started)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		Respond(w, responses.Error{Message: "Could not insert new job."}, http.StatusInternalServerError)
@@ -52,6 +68,63 @@ func CreateJob(w http.ResponseWriter, r *http.Request) () {
 	}
 
 	Respond(w, responses.Empty{}, http.StatusOK)
+}
+
+func StartProvidedJobs(w http.ResponseWriter, r *http.Request) () {
+	_, _, rawPostBody, err := ProtectedCallReceived(r)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		Respond(w, responses.Message{Message: err.Error()}, http.StatusInternalServerError)
+		return
+	}
+
+	type PostBody struct {
+		Ids []string `json:"ids"`
+	}
+	var postBody PostBody
+	err = json.Unmarshal(rawPostBody, &postBody)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		Respond(w, responses.Error{Message: "Could not read request body."}, http.StatusBadRequest)
+		return
+	}
+
+	for _, id := range postBody.Ids {
+		err = database.StartJob(id)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			Respond(w, responses.Error{Message: "Could not start all jobs."}, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	Respond(w, responses.Message{Message: "Success"}, http.StatusOK)
+}
+
+func StopAllJobs(w http.ResponseWriter, r *http.Request) () {
+	_, _, _, err := ProtectedCallReceived(r)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		Respond(w, responses.Message{Message: err.Error()}, http.StatusInternalServerError)
+		return
+	}
+
+	startedJobs, err := database.FindStartedJobs()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		Respond(w, responses.Message{Message: "Could not fetch jobs."}, http.StatusInternalServerError)
+		return
+	}
+	for _, startedJob := range startedJobs {
+		err = database.StopJob(startedJob.Id.Hex())
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			Respond(w, responses.Error{Message: "Could not stop all jobs."}, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	Respond(w, responses.Message{Message: "Success."}, http.StatusOK)
 }
 
 func GetJob(w http.ResponseWriter, r *http.Request) () {
@@ -87,16 +160,16 @@ func UpdateJob(w http.ResponseWriter, r *http.Request) () {
 	job, err := database.FindJobByID(id)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		Respond(w, responses.Error{Message: "Could not find job to update."}, http.StatusInternalServerError)
+		Respond(w, responses.Error{Message: "Could not find job to update."}, http.StatusBadRequest)
 		return
 	}
 
 	type PutBody struct {
-		Actions  struct{
+		Actions struct {
 			AddToOrChange []models.Action `json:"add-to-or-change"`
 			Remove        []string        `json:"remove"`
 		} `json:"actions"`
-		FrequencyInSeconds int64           `json:"frequency-in-seconds"`
+		FrequencyInSeconds int64 `json:"frequency-in-seconds"`
 	}
 	var putBody PutBody
 	err = json.Unmarshal(rawPutBody, &putBody)
@@ -171,36 +244,23 @@ func UpdateJob(w http.ResponseWriter, r *http.Request) () {
 }
 
 func DeleteJob(w http.ResponseWriter, r *http.Request) () {
-	_, _, _, err := ProtectedCallReceived(r)
+	routeVariables, _, _, err := ProtectedCallReceived(r)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		Respond(w, responses.Message{Message: err.Error()}, http.StatusInternalServerError)
 		return
 	}
 
-	Respond(w, responses.Empty{}, http.StatusOK)
-}
+	id := routeVariables["id"]
 
-func StartProvidedJobs(w http.ResponseWriter, r *http.Request) () {
-	_, _, _, err := ProtectedCallReceived(r)
+	err = database.DeleteJob(id)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		Respond(w, responses.Message{Message: err.Error()}, http.StatusInternalServerError)
+		Respond(w, responses.Error{Message: "Could not find job to delete."}, http.StatusBadRequest)
 		return
 	}
 
-	Respond(w, responses.Empty{}, http.StatusOK)
-}
-
-func StopAllJobs(w http.ResponseWriter, r *http.Request) () {
-	_, _, _, err := ProtectedCallReceived(r)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		Respond(w, responses.Message{Message: err.Error()}, http.StatusInternalServerError)
-		return
-	}
-
-	Respond(w, responses.Empty{}, http.StatusOK)
+	Respond(w, responses.Message{Message: "Success."}, http.StatusOK)
 }
 
 func StartJob(w http.ResponseWriter, r *http.Request) () {
